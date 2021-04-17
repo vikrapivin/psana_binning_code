@@ -36,7 +36,7 @@ ipmupper = 60000.
 ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 0
+thresholdVal = 265
 
 # get some scan parameters
 if rank == 0:

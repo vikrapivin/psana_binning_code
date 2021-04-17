@@ -14,5 +14,5 @@ x = np.linspace(min(fltpos),max(fltpos),50)
 #x = np.linspace(min(d),max(d),50)
 pyl.plot(x, ttfit[0]*x+ttfit[1], "r")
 pyl.show()
-print ttfit
+print(ttfit)
 
