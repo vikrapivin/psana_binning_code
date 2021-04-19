@@ -18,7 +18,7 @@ parser.add_argument("--ymax", help="which event number to start for threshold", 
 parser.add_argument("--xmin", help="which event number to start for threshold", type=int, default=0)
 parser.add_argument("--xmax", help="which event number to start for threshold", type=int, default=1000)
 parser.add_argument("--bins", help="which event number to start for threshold", type=int, default=40)
-parser.add_argument("--savefig", help="which event number to start for threshold", type=bool, default=True)
+parser.add_argument("--savefig", help="which event number to start for threshold", type=int, default=1)
 args = parser.parse_args()
 run_num = args.run
 start_event_num = args.event_number
@@ -129,7 +129,8 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     plt.figure()
     plt.hist(cspad_data.flatten(),range=(xmin,xmax),bins=bins_count)
     plt.ylim(ymin,ymax)
-    if saveFile != True:
+    print(saveFile)
+    if saveFile < 1:
       plt.show()
     else:
       plt.savefig('hist.png')

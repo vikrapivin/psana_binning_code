@@ -30,7 +30,7 @@ num_events_limit = args.num_events
 
 ########## set parameters here: #################
 expname = 'xpplv2818'
-savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s_laserOff.h5'%run_num
 #savepath = 'r%s.h5'%run_num
 ipmlower = 2000.0
 ipmupper = 60000.0
@@ -64,7 +64,7 @@ ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
 epics = ds.env().epicsStore()
 configStore = ds.env().configStore()
 
-evr2skip = laseroffevr
+evr2skip = laseronevr
 total_events = 0
 
 # ipm_src = psana.Source('BldInfo(XppSb3_Ipm)')
@@ -143,14 +143,14 @@ def filter_events(evts):
       continue
     # yield ev
 
-    TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
-    TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
-    if TTampl < ttamplower:
+    #TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
+    #TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
+    #if TTampl < ttamplower:
       # print(TTampl)
       # print('case TT')
-      skipctr += 1
+      #skipctr += 1
       # print "*** skipping TTvalue."
-      continue
+      #continue
     # count2 += 1
     # print(count2)
     yield ev
@@ -177,9 +177,9 @@ def get_encoder_value(ev):
 
 def get_timetool_values():
   # precondition: PV.data() != None
-  timetool_delay = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0] 
-  timetool_ampl  = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
-  return timetool_delay, timetool_ampl
+  #timetool_delay = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0] 
+  #timetool_ampl  = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
+  return 0,0#timetool_delay, timetool_ampl
 
 def get_corrected_delay(ev):
   nominal_delay = get_encoder_value(ev)

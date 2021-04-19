@@ -24,10 +24,11 @@ print(f'rank {rank} out of {size}')
 parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
+parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
-
+background_file = args.background
 ########## set parameters here: #################
 expname = 'xpplv2818'
 savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s_laserOff.h5'%run_num
@@ -36,7 +37,7 @@ ipmupper = 60000.
 ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 265
+thresholdVal = 6
 
 # get some scan parameters
 if rank == 0:
@@ -50,7 +51,14 @@ if rank == 0:
       range_upper = epics.getPV('XPP:SCAN:MAX00').data()[0]
       scan_motor_name = configStore.get(psana.ControlData.Config).pvControls()[0].name()
       break
+  # get background if specified
+  if background_file != '':
+    bkgrFile = h5py.File(background_file,'r')
+    avgBkgr = bkgrFile['avgBkgr'][()].astype('float64')
+    cspad_data_shape = avgBkgr.shape
+    bkgrFile.close()
 else:
+  cspad_data_shape = None
   num_bins = None
   range_lower = None
   range_upper = None
@@ -59,6 +67,13 @@ num_bins = comm.bcast(num_bins, root=0)
 range_lower = comm.bcast(range_lower, root=0)
 range_upper = comm.bcast(range_upper, root=0)
 scan_motor_name = comm.bcast(scan_motor_name, root=0)
+if background_file != '':
+  comm.Barrier()
+  cspad_data_shape = comm.bcast(cspad_data_shape, root=0)
+  if rank != 0:
+    avgBkgr = np.zeros(cspad_data_shape, dtype='float64')
+  comm.Barrier()
+  comm.Bcast(avgBkgr, root=0)
 
 
 #num_bins = 21
@@ -165,7 +180,7 @@ def mpi_reduce_arrays(*args):
     out.append(tmp)
   return out
 
-print(num_bins)
+#print(num_bins)
 
 
 def get_config_string():
@@ -181,6 +196,7 @@ def get_config_string():
   scan_motor_name = {}
   num_bins = {}
   thresholdVal = {}
+  background_file = {}
     """
   s = msg.format( expname,
                   savepath,
@@ -192,7 +208,8 @@ def get_config_string():
                   range_upper,
                   scan_motor_name,
                   num_bins,
-                  thresholdVal)
+                  thresholdVal,
+                  background_file)
   return s
 
 
@@ -260,6 +277,8 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     print("*** missing cspad data. Skipping event...")
     continue
   else:
+    if background_file != '':
+      cspad_data = cspad_data - avgBkgr
     cspad_data[cspad_data <= thresholdVal] = 0
     bin_cspad_sum.update_bins(scan_val, cspad_data)
     bin_ipm2.update_bins(scan_val, ipm2intens)
@@ -277,7 +296,9 @@ bin_cspad_mean, bin_cspad_sum_count, bin_ipm2_mean, bin_ipm2_cts, bin_ipm3_mean,
                     bin_ipm3._img, 
                     bin_ipm3._bin_count)
 
-scan_vals = bin_cspad_sum.bin_edges()
+#scan_vals = bin_cspad_sum.bin_edges()
+scan_vals = np.linspace(range_lower,range_upper, num_bins)
+
 
 if rank==0:
   saveh5(savepath,  cspad = bin_cspad_mean, 
@@ -287,3 +308,5 @@ if rank==0:
                     bins = scan_vals,
                     config = get_config_string())
   print("****** Done. ")
+
+comm.Barrier()

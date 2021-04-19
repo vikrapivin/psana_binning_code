@@ -72,7 +72,6 @@ if background_file != '':
   cspad_data_shape = comm.bcast(cspad_data_shape, root=0)
   if rank != 0:
     avgBkgr = np.zeros(cspad_data_shape, dtype='float64')
-  print(avgBkgr.dtype)
   comm.Barrier()
   comm.Bcast(avgBkgr, root=0)
 
@@ -297,7 +296,9 @@ bin_cspad_mean, bin_cspad_sum_count, bin_ipm2_mean, bin_ipm2_cts, bin_ipm3_mean,
                     bin_ipm3._img, 
                     bin_ipm3._bin_count)
 
-scan_vals = bin_cspad_sum.bin_edges()
+#scan_vals = bin_cspad_sum.bin_centers()
+scan_vals = np.linspace(range_lower,range_upper, num_bins)
+
 
 if rank==0:
   saveh5(savepath,  cspad = bin_cspad_mean, 
