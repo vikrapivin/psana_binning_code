@@ -25,21 +25,25 @@ parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
+parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 background_file = args.background
+is_relative_scan = args.relative_scan
 ########## set parameters here: #################
 expname = 'xpplv2818'
 savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
-ipmlower = 1000.
+ipmlower = 8000.
 ipmupper = 60000.
 ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 6
+thresholdVal = 9.75
+thresholdVal_max = 11.0
 
 # get some scan parameters
+rel_offset = 0
 if rank == 0:
   ds_get_evt = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
   epics = ds_get_evt.env().epicsStore()
@@ -50,6 +54,8 @@ if rank == 0:
       range_lower = epics.getPV('XPP:SCAN:MIN00').data()[0]
       range_upper = epics.getPV('XPP:SCAN:MAX00').data()[0]
       scan_motor_name = configStore.get(psana.ControlData.Config).pvControls()[0].name()
+      if is_relative_scan>0:
+        rel_offset = configStore.get(psana.ControlData.Config).pvControls()[0].value() - range_lower
       break
   # get background if specified
   if background_file != '':
@@ -74,7 +80,10 @@ if background_file != '':
     avgBkgr = np.zeros(cspad_data_shape, dtype='float64')
   comm.Barrier()
   comm.Bcast(avgBkgr, root=0)
-
+if is_relative_scan >0:
+  rel_offset = comm.bcast(rel_offset, root=0)
+  range_lower = rel_offset + range_lower
+  range_upper = rel_offset + range_upper
 
 #num_bins = 21
 #weightby = False
@@ -196,6 +205,7 @@ def get_config_string():
   scan_motor_name = {}
   num_bins = {}
   thresholdVal = {}
+  thresholdVal_max = {}
   background_file = {}
     """
   s = msg.format( expname,
@@ -209,6 +219,7 @@ def get_config_string():
                   scan_motor_name,
                   num_bins,
                   thresholdVal,
+                  thresholdVal_max,
                   background_file)
   return s
 
@@ -280,6 +291,7 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     if background_file != '':
       cspad_data = cspad_data - avgBkgr
     cspad_data[cspad_data <= thresholdVal] = 0
+    cspad_data[cspad_data >= thresholdVal_max] = 0
     bin_cspad_sum.update_bins(scan_val, cspad_data)
     bin_ipm2.update_bins(scan_val, ipm2intens)
     bin_ipm3.update_bins(scan_val, ipm3intens)

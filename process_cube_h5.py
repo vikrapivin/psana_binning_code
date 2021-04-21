@@ -38,7 +38,8 @@ ttamplower = 0.015
 #ttfltposps_lower=
 #ttfltposps_upper=
 
-thresholdVal = 6.0
+thresholdVal = 9.75
+thresholdVal_max = 11.0
 
 TIME_TOOL_CALIB = -0.#0019428
 TIME_TOOL_OFFSET = 0.#90017463
@@ -221,6 +222,7 @@ def get_config_string():
   num_bins = {}
   weightby = {}
   thresholdVal = {}
+  thresholdVal_max = {}
     """
   s = msg.format( expname,
                   savepath,
@@ -236,7 +238,8 @@ def get_config_string():
                   delay_ignore_upper,
                   num_bins,
                   weightby,
-                  thresholdVal)
+                  thresholdVal,
+                  thresholdVal_max)
   return s
 
 
@@ -310,6 +313,7 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     continue
   else:
     cspad_data[cspad_data <= thresholdVal] = 0
+    cspad_data[cspad_data <= thresholdVal_max] = 0
     bin_cspad_sum.update_bins(delay, cspad_data)
     bin_ipm2.update_bins(delay, ipm2intens)
     bin_ipm3.update_bins(delay, ipm3intens)

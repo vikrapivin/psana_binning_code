@@ -28,6 +28,8 @@ ipmlower = 2000.
 ipmupper = 60000.
 laseroffevr = 91
 laseronevr = 90
+thresholdVal = 9.75
+thresholdVal_max = 11.0
 #evr2skip = laseroffevr
 #################################################
 
@@ -114,11 +116,15 @@ def get_config_string():
   savepath = {}
   ipmlower = {}
   ipmupper = {}
+  thresholdVal = {}
+  thresholdVal_max = {}
     """
   s = msg.format( expname,
                   savepath,
                   ipmlower,
-                  ipmupper)
+                  ipmupper,
+                  thresholdVal,
+                  thresholdVal_max)
   return s
 
 
@@ -184,6 +190,8 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     print("*** missing cspad data. Skipping event...")
     continue
   else:
+    cspad_data[cspad_data >= thresholdVal_max] = 0
+    cspad_data[cspad_data <= thresholdVal] = 0
     single_img +=cspad_data
     ipm2_sum += ipm2intens
     ipm3_sum += ipm3intens
