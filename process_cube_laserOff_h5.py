@@ -332,7 +332,7 @@ if rank==0:
    saveh5(savepath,  cspad = bin_cspad_mean, 
                      nEntries = bin_cspad_sum_count, 
                      ipm2_sum = bin_ipm2_mean, 
-                     ipm3_sum = bin_ipm2_mean, 
+                     ipm3_sum = bin_ipm3_mean, 
                      bins = delays,
                      config = get_config_string())
    print("****** Done. ")
