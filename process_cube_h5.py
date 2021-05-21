@@ -25,44 +25,54 @@ parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
+parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false', type=int, default=0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 process_laser_off = args.laser_off
+pull_from_ffb = args.pull_from_ffb
 
 ########## set parameters here: #################
-expname = 'xpplv2818'
-savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+expname = 'xpplw8919'
+if pull_from_ffb == 0:
+  savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+else:
+  savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
 #savepath = 'r%s.h5'%run_num
-ipmlower = 2000.0
+ipmlower = 50.0
 ipmupper = 60000.0
 ttamplower = 0.015
 #ttfltposps_lower=
 #ttfltposps_upper=
 
-thresholdVal = 9.75
-thresholdVal_max = 11.0
+thresholdVal = 8.5
+thresholdVal_max = 110000.0
 
-TIME_TOOL_CALIB = -0.#0019428
-TIME_TOOL_OFFSET = 0.#90017463
+TIME_TOOL_CALIB = -0.00210557
+TIME_TOOL_OFFSET = 1.47878948
 #end
 
 laseroffevr = 91
 laseronevr = 90
-delay_range_lower = -60
-delay_range_upper = 50 # in units of ps
+delay_range_lower = -6
+delay_range_upper = 14 # in units of ps
 ## use these to skip out of range delays:
 delay_ignore_lower = delay_range_lower   
 delay_ignore_upper = delay_range_upper 
-num_bins = 110
+num_bins = 400
 weightby = False
 encoder_conv = 0.13333333333333333e-3 # ps/click
 encoder_offset= -182700
 ################################################
 
 #ds = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
-ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
+# ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
 # psana.DataSource('dir=/reg/d/ffb/xpp/xpph6615/xtc/:exp=xpph6615:run=%s:idx'%run)
+
+if pull_from_ffb == 0:
+  ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
+else:
+  ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd:dir=/cds/data/drpsrcf/xpp/'%run_num + expname + '/xtc')
 
 epics = ds.env().epicsStore()
 configStore = ds.env().configStore()
@@ -77,7 +87,7 @@ ipm3_src = psana.Source('BldInfo(XPP-SB3-BMMON)')
 #ipm3_src = psana.Detector('XPP-SB3-BMMON',ds.env())
 evr_src = psana.Source("NoDetector.0:Evr.0")
 # evrDet   = psana.Detector('evr0',ds.env())
-cspadDet = psana.Detector('jungfrau1M',ds.env()) 
+cspadDet =  psana.Detector('jungfrau1M',ds.env()) 
 #encoder_src = psana.Source('DetInfo(XppEndstation.0:USDUSB.0)')
 encoder_src = psana.Detector('XPP-USB-ENCODER-02')
 #encoder_src = psana.Detector()
@@ -123,7 +133,7 @@ def filter_events(evts):
     evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm2_src )
     if evt_intensity is not None:
       intens_ = evt_intensity.TotalIntensity()
-      #print(intens_)
+      # print(intens_)
       if intens_ < ipmlower or intens_ > ipmupper:
         # print('case intensity')
         skipctr += 1
@@ -142,37 +152,32 @@ def filter_events(evts):
       print("*** no evr, skipping.")
       continue
     evr_list = [x.eventCode() for x in evr.fifoEvents()]
+    # print(evr_list)
     if process_laser_off !=0:
-      pass
+      if evr_list.count(laseronevr)>0:
+        # TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
+        TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
+        if TTampl < ttamplower:
+          # print(TTampl)
+          # print('case TT')
+          skipctr += 1
+          # print "*** skipping TTvalue."
+          continue
     elif evr_list.count(evr2skip)>0:
-      # print('case evr_list')
+      # print(evr_list.count(evr2skip))
       skipctr += 1
       continue
-    # yield ev
-
-    TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
-    TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
-    if TTampl < ttamplower:
-      # print(TTampl)
-      # print('case TT')
-      skipctr += 1
-      # print "*** skipping TTvalue."
-      continue
+      # TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
+      TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
+      if TTampl < ttamplower:
+        # print(TTampl)
+        # print('case TT')
+        skipctr += 1
+        # print "*** skipping TTvalue."
+        continue
     # count2 += 1
     # print(count2)
     yield ev
-
-
-
-
-# psana.Source('DetInfo(XppEndstation.0:USDUSB.0)')
-def get_control_value():
-  control = configStore.get(psana.ControlData.Config).pvControls()
-  # precondition: len(control) == 1
-  if control[0].name() == "lxt_ttc" or control[0].name() == "lxt" or control[0].name() == "lxt_new" or control[0].name() == "xpp_lxt_fast":
-    return 1e12*control[0].value() 
-  else:
-    return control[0].value() 
 
 def get_encoder_value(ev):
   #enc_data = ev.get(psana.UsdUsb.DataV1, encoder_src)
@@ -190,8 +195,6 @@ def get_timetool_values():
 
 def get_corrected_delay(ev):
   nominal_delay = get_encoder_value(ev)
-  #print nominal_delay
-  #nominal_delay = get_control_value()
   if nominal_delay is None:
     return None
   timetool_delay, timetool_ampl = get_timetool_values()
@@ -319,9 +322,16 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
   if cspad_data is None:
     print("*** missing cspad data. Skipping event...")
     continue
-  else:
+  if process_laser_off == 0:
+    cspad_data[cspad_data <= thresholdVal] = 0
+    cspad_data[cspad_data >= thresholdVal_max] = 0
+    bin_cspad_sum.update_bins(delay, cspad_data)
+    bin_ipm2.update_bins(delay, ipm2intens)
+    bin_ipm3.update_bins(delay, ipm3intens)
+  elif process_laser_off != 0:
     evr=ev.get(psana.EvrData.DataV4, evr_src)
     evr_list = [x.eventCode() for x in evr.fifoEvents()]
+    # print(evr_list)
     if evr_list.count(laseroffevr)>0:
       cspad_data[cspad_data <= thresholdVal] = 0
       cspad_data[cspad_data >= thresholdVal_max] = 0

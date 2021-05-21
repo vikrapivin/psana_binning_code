@@ -2,7 +2,7 @@ import numpy as np
 import pylab as pyl
 import h5py
 
-ldatfile = '/reg/data/drpsrcf/xpp/xpplv9818/scratch/hdf5/smalldata/xpplv9818_Run0020.h5'
+ldatfile = '/reg/data/drpsrcf/xpp/xpplv9818/scratch/hdf5/smalldata/xpplw8919_Run0047.h5'
 f = h5py.File(ldatfile)
 ttampl=f['tt']['AMPL'][()]
 ids=ttampl>0.05

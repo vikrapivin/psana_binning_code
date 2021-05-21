@@ -26,27 +26,32 @@ parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=s
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
 parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
+parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false', type=int, default=0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 background_file = args.background
 is_relative_scan = args.relative_scan
+pull_from_ffb = args.pull_from_ffb
 ########## set parameters here: #################
 expname = 'xpplw8919'
 savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
-ipmlower = 1000.
+ipmlower = 50.
 ipmupper = 60000.
 ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
 thresholdVal = 8.5
-thresholdVal_max = 11.0
+thresholdVal_max = 110000.0
 
 # get some scan parameters
 rel_offset = 0
 scanMotorConfigStoreOffSet = 0
 if rank == 0:
-  ds_get_evt = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
+  if pull_from_ffb == 0:
+    ds_get_evt = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
+  else:
+    ds_get_evt = psana.DataSource('exp=' + expname + ':run=%s:smd:dir=/cds/data/drpsrcf/xpp/'%run_num + expname + '/xtc')
   epics = ds_get_evt.env().epicsStore()
   configStore = ds_get_evt.env().configStore()
   for nevent, ev in enumerate(ds_get_evt.events()):
@@ -56,11 +61,13 @@ if rank == 0:
       range_upper = epics.getPV('XPP:SCAN:MAX00').data()[0]
       # the thing below seems to be more reliable than getting the config store as multiple scan motors can be stored in the config store
       scan_motor_name = epics.value('XPP:SCAN:SCANVAR00') #configStore.get(psana.ControlData.Config).pvControls()[0].name() 
+      # print(scan_motor_name + ' is scan motor.')
       control = configStore.get(psana.ControlData.Config).pvControls()
       lengthOfSavedControls = len(control)
       # find the correct control parameter to use, assuming we only have 1 scanvar, TODO to handle if more than 1 scan var
       foundVal = False
       for ii in range(0,lengthOfSavedControls):
+        # print(control[ii].name() + ' is ii motor.')
         if(control[ii].name() == scan_motor_name):
           scanMotorConfigStoreOffSet = ii
           foundVal = True
@@ -104,8 +111,13 @@ if is_relative_scan >0:
 #control_name = None
 #################################################
 
-ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
+# ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
 # psana.DataSource('dir=/reg/d/ffb/xpp/xpph6615/xtc/:exp=xpph6615:run=%s:idx'%run)
+
+if pull_from_ffb == 0:
+  ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
+else:
+  ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd:dir=/cds/data/drpsrcf/xpp/'%run_num + expname + '/xtc')
 
 epics = ds.env().epicsStore()
 configStore = ds.env().configStore()
