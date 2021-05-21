@@ -86,6 +86,7 @@ num_bins = comm.bcast(num_bins, root=0)
 range_lower = comm.bcast(range_lower, root=0)
 range_upper = comm.bcast(range_upper, root=0)
 scan_motor_name = comm.bcast(scan_motor_name, root=0)
+scanMotorConfigStoreOffSet = comm.bcast(scanMotorConfigStoreOffSet, root=0)
 if background_file != '':
   comm.Barrier()
   cspad_data_shape = comm.bcast(cspad_data_shape, root=0)
