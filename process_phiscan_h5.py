@@ -32,18 +32,19 @@ num_events_limit = args.num_events
 background_file = args.background
 is_relative_scan = args.relative_scan
 ########## set parameters here: #################
-expname = 'xpplv2818'
+expname = 'xpplw8919'
 savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
-ipmlower = 8000.
+ipmlower = 1000.
 ipmupper = 60000.
 ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 9.75
+thresholdVal = 8.5
 thresholdVal_max = 11.0
 
 # get some scan parameters
 rel_offset = 0
+scanMotorConfigStoreOffSet = 0
 if rank == 0:
   ds_get_evt = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
   epics = ds_get_evt.env().epicsStore()
@@ -53,9 +54,21 @@ if rank == 0:
       num_bins = epics.getPV('XPP:SCAN:NSTEPS').data()[0]
       range_lower = epics.getPV('XPP:SCAN:MIN00').data()[0]
       range_upper = epics.getPV('XPP:SCAN:MAX00').data()[0]
-      scan_motor_name = configStore.get(psana.ControlData.Config).pvControls()[0].name()
+      # the thing below seems to be more reliable than getting the config store as multiple scan motors can be stored in the config store
+      scan_motor_name = epics.value('XPP:SCAN:SCANVAR00') #configStore.get(psana.ControlData.Config).pvControls()[0].name() 
+      control = configStore.get(psana.ControlData.Config).pvControls()
+      lengthOfSavedControls = len(control)
+      # find the correct control parameter to use, assuming we only have 1 scanvar, TODO to handle if more than 1 scan var
+      foundVal = False
+      for ii in range(0,lengthOfSavedControls):
+        if(control[ii].name() == scan_motor_name):
+          scanMotorConfigStoreOffSet = ii
+          foundVal = True
+          break
+      if foundVal == False:
+        print('Warning: was not able to find the scan motor config store offset. Assuming it is 0.')
       if is_relative_scan>0:
-        rel_offset = configStore.get(psana.ControlData.Config).pvControls()[0].value() - range_lower
+        rel_offset = configStore.get(psana.ControlData.Config).pvControls()[scanMotorConfigStoreOffSet].value() - range_lower
       break
   # get background if specified
   if background_file != '':
@@ -172,9 +185,9 @@ def get_control_value():
   # precondition: len(control) == 1
   if control[0].name() == "lxt_ttc" or control[0].name() == "lxt" or control[0].name() == "lxt_new" or control[0].name() == "xpp_lxt_fast":
     raise("This is a delay scan. Handle this error or comment it if you are sure you would like to continue.")
-    return 1e12*control[0].value()
+    return 1e12*control[scanMotorConfigStoreOffSet].value()
   else:
-    return control[0].value()
+    return control[scanMotorConfigStoreOffSet].value()
 
 
 ## MPI reduce (only for arrays):
@@ -207,6 +220,7 @@ def get_config_string():
   thresholdVal = {}
   thresholdVal_max = {}
   background_file = {}
+  scanMotorConfigStoreOffSet = {}
     """
   s = msg.format( expname,
                   savepath,
@@ -220,7 +234,8 @@ def get_config_string():
                   num_bins,
                   thresholdVal,
                   thresholdVal_max,
-                  background_file)
+                  background_file,
+                  scanMotorConfigStoreOffSet)
   return s
 
 
