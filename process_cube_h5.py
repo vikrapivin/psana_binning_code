@@ -203,6 +203,13 @@ def get_corrected_delay(ev):
   return nominal_delay + TIME_TOOL_CALIB*timetool_delay + TIME_TOOL_OFFSET
 
 
+def get_nominal_delay(ev):
+  nominal_delay = get_encoder_value(ev)
+  if nominal_delay is None:
+    return None
+  return nominal_delay
+
+
 ## MPI reduce (only for arrays):
 def mpi_reduce_arrays(*args):
   out = []
@@ -300,13 +307,6 @@ prev_delay = None
 # for nevent, ev in enumerate(filter_events(smdgen(ds.events() ))):
 for nevent, ev in enumerate(filter_events(ds.events() )):
   total_events += 1
-  # maybe this goes after ipm's to capture laseroffs at the end:
-  delay = get_corrected_delay(ev)
-
-  ## if EVR = laseroff
-  # bin_laseroff.update_bins(prev_delay, cspad_data)
-  if delay is None:
-    continue
 
   evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
   if evt_intensity is None:
@@ -325,6 +325,9 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     print("*** missing cspad data. Skipping event...")
     continue
   if process_laser_off == 0:
+    delay = get_corrected_delay(ev)
+    if delay is None:
+      continue
     cspad_data[cspad_data <= thresholdVal] = 0
     cspad_data[cspad_data >= thresholdVal_max] = 0
     bin_cspad_sum.update_bins(delay, cspad_data)
@@ -335,12 +338,18 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     evr_list = [x.eventCode() for x in evr.fifoEvents()]
     # print(evr_list)
     if evr_list.count(laseroffevr)>0:
+      delay = get_nominal_delay(ev)
+      if delay is None:
+        continue
       cspad_data[cspad_data <= thresholdVal] = 0
       cspad_data[cspad_data >= thresholdVal_max] = 0
       bin_cspad_sum_off.update_bins(delay, cspad_data)
       bin_ipm2_off.update_bins(delay, ipm2intens)
       bin_ipm3_off.update_bins(delay, ipm3intens)
     elif evr_list.count(laseronevr)>0:
+      delay = get_corrected_delay(ev)
+      if delay is None:
+        continue
       cspad_data[cspad_data <= thresholdVal] = 0
       cspad_data[cspad_data >= thresholdVal_max] = 0
       bin_cspad_sum.update_bins(delay, cspad_data)
