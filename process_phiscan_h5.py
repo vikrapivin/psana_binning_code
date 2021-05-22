@@ -26,16 +26,21 @@ parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=s
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
 parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
-parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false', type=int, default=0)
+parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
+parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 background_file = args.background
 is_relative_scan = args.relative_scan
 pull_from_ffb = args.pull_from_ffb
+process_laser_off = args.laser_off
 ########## set parameters here: #################
 expname = 'xpplw8919'
-savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+if pull_from_ffb == 0:
+  savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+else:
+  savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
 ipmlower = 50.
 ipmupper = 60000.
 ttamplower = 0.01
@@ -136,6 +141,11 @@ encoder_src = psana.Source('DetInfo(XppEndstation.0:USDUSB.0)')
 bin_ipm2 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
 bin_ipm3 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
 bin_cspad_sum = binEvents.init_from_array(np.linspace(range_lower,range_upper, num_bins))
+if process_laser_off !=0:
+  bin_cspad_sum_off = binEvents(range_lower, range_upper, num_bins)
+  bin_ipm2_off = binEvents(range_lower, range_upper, num_bins)
+  bin_ipm3_off = binEvents(range_lower, range_upper, num_bins)
+
 
 def mpi_message(msg):
   if rank == 0:
@@ -178,18 +188,14 @@ def filter_events(evts):
     if evr is None:
       print("*** no evr, skipping.")
       continue
-    evr_list = [x.eventCode() for x in evr.fifoEvents()]
-    if evr_list.count(evr2skip)>0:
-      skipctr += 1
-      continue
-    # yield ev
+    if process_laser_off !=0:
+      pass
+    else:
+      evr_list = [x.eventCode() for x in evr.fifoEvents()]
+      if evr_list.count(evr2skip)>0:
+        skipctr += 1
+        continue
 
-    # TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS_PS').data()[0]
-    # TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
-    # if TTampl < ttamplower:
-    #   skipctr += 1
-    #   # print "*** skipping TTvalue."
-    #   continue
     yield ev
 
 
@@ -234,6 +240,7 @@ def get_config_string():
   thresholdVal_max = {}
   background_file = {}
   scanMotorConfigStoreOffSet = {}
+  process_laser_off = {}
     """
   s = msg.format( expname,
                   savepath,
@@ -248,7 +255,8 @@ def get_config_string():
                   thresholdVal,
                   thresholdVal_max,
                   background_file,
-                  scanMotorConfigStoreOffSet)
+                  scanMotorConfigStoreOffSet,
+                  process_laser_off)
   return s
 
 
@@ -318,11 +326,28 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
   else:
     if background_file != '':
       cspad_data = cspad_data - avgBkgr
+  if process_laser_off == 0:
     cspad_data[cspad_data <= thresholdVal] = 0
     cspad_data[cspad_data >= thresholdVal_max] = 0
     bin_cspad_sum.update_bins(scan_val, cspad_data)
     bin_ipm2.update_bins(scan_val, ipm2intens)
     bin_ipm3.update_bins(scan_val, ipm3intens)
+  else:
+    evr=ev.get(psana.EvrData.DataV4, evr_src)
+    evr_list = [x.eventCode() for x in evr.fifoEvents()]
+    # print(evr_list)
+    if evr_list.count(laseroffevr)>0:
+      cspad_data[cspad_data <= thresholdVal] = 0
+      cspad_data[cspad_data >= thresholdVal_max] = 0
+      bin_cspad_sum_off.update_bins(scan_val, cspad_data)
+      bin_ipm2_off.update_bins(scan_val, ipm2intens)
+      bin_ipm3_off.update_bins(scan_val, ipm3intens)
+    elif evr_list.count(laseronevr)>0:
+      cspad_data[cspad_data <= thresholdVal] = 0
+      cspad_data[cspad_data >= thresholdVal_max] = 0
+      bin_cspad_sum.update_bins(scan_val, cspad_data)
+      bin_ipm2.update_bins(scan_val, ipm2intens)
+      bin_ipm3.update_bins(scan_val, ipm3intens)
 
   if (nevent%500==0):
     # print("# events: ", nevent)
@@ -335,18 +360,37 @@ bin_cspad_mean, bin_cspad_sum_count, bin_ipm2_mean, bin_ipm2_cts, bin_ipm3_mean,
                     bin_ipm2._bin_count,
                     bin_ipm3._img, 
                     bin_ipm3._bin_count)
-
+if process_laser_off !=0:
+  bin_cspad_mean_off, bin_cspad_sum_count_off, bin_ipm2_mean_off, bin_ipm2_cts_off, bin_ipm3_mean_off, bin_ipm3_cts_off = mpi_reduce_arrays(
+                      bin_cspad_sum_off._img, 
+                      bin_cspad_sum_off._bin_count, 
+                      bin_ipm2_off._img, 
+                      bin_ipm2_off._bin_count,
+                      bin_ipm3_off._img, 
+                      bin_ipm3_off._bin_count)
 #scan_vals = bin_cspad_sum.bin_centers()
 scan_vals = np.linspace(range_lower,range_upper, num_bins)
 
 
 if rank==0:
-  saveh5(savepath,  cspad = bin_cspad_mean, 
-                    nEntries = bin_cspad_sum_count, 
-                    ipm2_sum = bin_ipm2_mean, 
-                    ipm3_sum = bin_ipm3_mean, 
-                    bins = scan_vals,
-                    config = get_config_string())
+  if process_laser_off == 0:
+    saveh5(savepath,  cspad = bin_cspad_mean, 
+                      nEntries = bin_cspad_sum_count, 
+                      ipm2_sum = bin_ipm2_mean, 
+                      ipm3_sum = bin_ipm3_mean, 
+                      bins = scan_vals,
+                      config = get_config_string())
+  elif process_laser_off != 0:
+    saveh5(savepath,  cspad = bin_cspad_mean, 
+                      nEntries = bin_cspad_sum_count, 
+                      ipm2_sum = bin_ipm2_mean, 
+                      ipm3_sum = bin_ipm3_mean, 
+                      cspad_off = bin_cspad_mean_off, 
+                      nEntries_off = bin_cspad_sum_count_off, 
+                      ipm2_sum_off = bin_ipm2_mean_off, 
+                      ipm3_sum_off = bin_ipm3_mean_off, 
+                      bins = scan_vals,
+                      config = get_config_string())
   print("****** Done. ")
 
 comm.Barrier()
