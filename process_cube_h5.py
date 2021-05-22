@@ -181,6 +181,8 @@ def filter_events(evts):
 
 def get_encoder_value(ev):
   #enc_data = ev.get(psana.UsdUsb.DataV1, encoder_src)
+  if encoder_src.values(ev) is None:
+    return None
   enc_data = encoder_src.values(ev)[0]
   if enc_data is None:
     return None
