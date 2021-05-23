@@ -64,6 +64,9 @@ if rank == 0:
   for nevent, ev in enumerate(ds_get_evt.events()):
     if nevent > 10:
       num_bins = epics.getPV('XPP:SCAN:NSTEPS').data()[0]
+      if num_bins is None:
+        print('num_bins did not return. Assuming 5 bins.')
+        num_bins = 5
       range_lower = epics.getPV('XPP:SCAN:MIN00').data()[0]
       range_upper = epics.getPV('XPP:SCAN:MAX00').data()[0]
       # the thing below seems to be more reliable than getting the config store as multiple scan motors can be stored in the config store
