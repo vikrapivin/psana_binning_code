@@ -28,6 +28,7 @@ parser.add_argument("--background", help="name of background file, leave empty i
 parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
+parser.add_argument("--ignore_no_optical_laser", help="Should this code explicitly check that each laser on event has a laser on code. This is typically not what you want as you want data from when we have optical laser off.", type=int, default=0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
@@ -35,6 +36,7 @@ background_file = args.background
 is_relative_scan = args.relative_scan
 pull_from_ffb = args.pull_from_ffb
 process_laser_off = args.laser_off
+ignore_no_optical_laser = args.ignore_no_optical_laser
 ########## set parameters here: #################
 expname = 'xpplw8919'
 if pull_from_ffb == 0:
@@ -191,11 +193,23 @@ def filter_events(evts):
     if process_laser_off !=0:
       pass
     else:
+      # evr_list = [x.eventCode() for x in evr.fifoEvents()]
+      # print(evr_list)
+      # if evr_list.count(evr2skip)>0:
+      #   skipctr += 1
+      #   continue
       evr_list = [x.eventCode() for x in evr.fifoEvents()]
-      if evr_list.count(evr2skip)>0:
+      if evr_list.count(laseroffevr)>0:
         skipctr += 1
         continue
-
+      elif ignore_no_optical_laser > 0:
+        if evr_list.count(laseronevr)>0:
+          pass
+        else:
+          skipctr += 1
+          continue
+      else:
+        pass
     yield ev
 
 
@@ -241,6 +255,7 @@ def get_config_string():
   background_file = {}
   scanMotorConfigStoreOffSet = {}
   process_laser_off = {}
+  ignore_no_optical_laser = {}
     """
   s = msg.format( expname,
                   savepath,
@@ -256,7 +271,8 @@ def get_config_string():
                   thresholdVal_max,
                   background_file,
                   scanMotorConfigStoreOffSet,
-                  process_laser_off)
+                  process_laser_off,
+                  ignore_no_optical_laser)
   return s
 
 
@@ -342,7 +358,7 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
       bin_cspad_sum_off.update_bins(scan_val, cspad_data)
       bin_ipm2_off.update_bins(scan_val, ipm2intens)
       bin_ipm3_off.update_bins(scan_val, ipm3intens)
-    elif evr_list.count(laseronevr)>0:
+    elif ignore_no_optical_laser == 0 or evr_list.count(laseronevr)>0:
       cspad_data[cspad_data <= thresholdVal] = 0
       cspad_data[cspad_data >= thresholdVal_max] = 0
       bin_cspad_sum.update_bins(scan_val, cspad_data)
@@ -373,6 +389,7 @@ scan_vals = np.linspace(range_lower,range_upper, num_bins)
 
 
 if rank==0:
+  print(bin_cspad_sum_count)
   if process_laser_off == 0:
     saveh5(savepath,  cspad = bin_cspad_mean, 
                       nEntries = bin_cspad_sum_count, 
