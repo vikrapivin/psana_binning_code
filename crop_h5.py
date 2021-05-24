@@ -74,7 +74,7 @@ h5f_out.create_dataset('I0_laser_on_integrated', data=i0_laser_on)
 h5f_out.create_dataset('I0_laser_on_integrated_off', data=i0_laser_off)
 h5f_out.create_dataset('bin_counts', data=bin_counts)
 h5f_out.create_dataset('bin_counts_off', data=bin_counts_off)
-h5f_out.create_dataset('scan_var', data=scan_axis)
+h5f_out.create_dataset('scan_var_position', data=scan_axis)
 
 
 # impose image boundaries on ROI
