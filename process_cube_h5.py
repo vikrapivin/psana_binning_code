@@ -167,6 +167,7 @@ def filter_events(evts):
       # print(evr_list.count(evr2skip))
       skipctr += 1
       continue
+    else:
       # TTvalue = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0]
       TTampl = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
       if TTampl < ttamplower:
