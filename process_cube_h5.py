@@ -26,6 +26,8 @@ parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=s
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
+parser.add_argument("--time_low", help="specify time start", type=float, default=0.0)
+parser.add_argument("--time_high", help="specify time end", type=float, default=0.0)
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
@@ -33,7 +35,7 @@ process_laser_off = args.laser_off
 pull_from_ffb = args.pull_from_ffb
 
 ########## set parameters here: #################
-expname = 'xpplw8919'
+expname = 'xpplv9818'
 if pull_from_ffb == 0:
   savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
 else:
@@ -45,17 +47,17 @@ ttamplower = 0.015
 #ttfltposps_lower=
 #ttfltposps_upper=
 
-thresholdVal = 8.5
+thresholdVal = 11.0
 thresholdVal_max = 110000.0
 
-TIME_TOOL_CALIB = -0.00210557
-TIME_TOOL_OFFSET = 1.47878948
+TIME_TOOL_CALIB = -0.0019428
+TIME_TOOL_OFFSET = 0.90017463
 #end
 
 laseroffevr = 91
 laseronevr = 90
-delay_range_lower = -6
-delay_range_upper = 14 # in units of ps
+delay_range_lower = args.time_low
+delay_range_upper = args.time_high # in units of ps
 ## use these to skip out of range delays:
 delay_ignore_lower = delay_range_lower   
 delay_ignore_upper = delay_range_upper 
@@ -400,4 +402,5 @@ if rank==0:
                       bins = delays,
                       config = get_config_string())
   print("****** Done. ")
+
 

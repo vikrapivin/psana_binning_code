@@ -38,17 +38,17 @@ pull_from_ffb = args.pull_from_ffb
 process_laser_off = args.laser_off
 ignore_no_optical_laser = args.ignore_no_optical_laser
 ########## set parameters here: #################
-expname = 'xpplw8919'
+expname = 'xpplv9818'
 if pull_from_ffb == 0:
   savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
 else:
   savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
 ipmlower = 50.
 ipmupper = 60000.
-ttamplower = 0.01
+#ttamplower = 0.01
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 8.5
+thresholdVal = 11.0
 thresholdVal_max = 110000.0
 
 # get some scan parameters
@@ -147,9 +147,9 @@ bin_ipm2 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bin
 bin_ipm3 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
 bin_cspad_sum = binEvents.init_from_array(np.linspace(range_lower,range_upper, num_bins))
 if process_laser_off !=0:
-  bin_cspad_sum_off = binEvents(range_lower, range_upper, num_bins)
-  bin_ipm2_off = binEvents(range_lower, range_upper, num_bins)
-  bin_ipm3_off = binEvents(range_lower, range_upper, num_bins)
+  bin_cspad_sum_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
+  bin_ipm2_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
+  bin_ipm3_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
 
 
 def mpi_message(msg):
@@ -414,3 +414,4 @@ if rank==0:
   print("****** Done. ")
 
 comm.Barrier()
+
