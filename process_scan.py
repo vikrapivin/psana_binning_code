@@ -29,6 +29,17 @@ parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if t
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
 parser.add_argument("--ignore_no_optical_laser", help="Should this code explicitly check that each laser on event has a laser on code. This is typically not what you want as you want data from when we have optical laser off.", type=int, default=0)
+parser.add_argument("--exp_name", help="specify the name of the experiment", type=str, default='xpplw8419')
+parser.add_argument("--ipm_lower", help="lower value of the IPM to filter by", type=float, default=0.0)
+parser.add_argument("--ipm_higher", help="higher value of the IPM to filter by", type=float, default=1.0e10)
+parser.add_argument("--ipm3_lower", help="lower value of the IPM 3 to filter by", type=float, default=0.0)
+parser.add_argument("--ipm3_higher", help="higher value of the IPM 3 to filter by", type=float, default=1.0e10)
+parser.add_argument("--detector_threshold", help="lower value to threshold the detector (ie. values below this are set to 0)", type=float, default=0.0)
+parser.add_argument("--detector_threshold_high", help="higher value to threshold the detector (ie. values above this are set to 0)", type=float, default=1.0e10)
+parser.add_argument("--custom_calibration_directory", help="Provide a custom directory for the pedestal and other psana settings", type=str, default='')
+
+
+
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
@@ -37,19 +48,23 @@ is_relative_scan = args.relative_scan
 pull_from_ffb = args.pull_from_ffb
 process_laser_off = args.laser_off
 ignore_no_optical_laser = args.ignore_no_optical_laser
+expname = args.exp_name
+ipmlower = args.ipm_lower
+ipmupper = args.ipm_higher
+ipm3lower = args.ipm3_lower
+ipm3upper = args.ipm3_higher
+thresholdVal = args.detector_threshold
+thresholdVal_max = args.detector_threshold_high
+
 ########## set parameters here: #################
 expname = 'xpplv9818'
 if pull_from_ffb == 0:
   savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
 else:
   savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
-ipmlower = 50.
-ipmupper = 60000.
-#ttamplower = 0.01
+
 laseroffevr = 91
 laseronevr = 90
-thresholdVal = 11.0
-thresholdVal_max = 110000.0
 
 # get some scan parameters
 rel_offset = 0
@@ -116,13 +131,9 @@ if is_relative_scan >0:
   range_lower = rel_offset + range_lower
   range_upper = rel_offset + range_upper
 
-#num_bins = 21
-#weightby = False
-#control_name = None
+
 #################################################
 
-# ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
-# psana.DataSource('dir=/reg/d/ffb/xpp/xpph6615/xtc/:exp=xpph6615:run=%s:idx'%run)
 
 if pull_from_ffb == 0:
   ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
@@ -181,13 +192,13 @@ def filter_events(evts):
         skipctr += 1
         continue
 
-    # ## Filter on IPM3
-    # evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm3_src )
-    # if evt_intensity is not None:
-    #   intens_ = evt_intensity.sum()
-    #   if intens_ < ipmlower or intens_ > ipmupper:
-    #     skipctr += 1
-    #     continue
+    ## Filter on IPM3
+    evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm3_src )
+    if evt_intensity is not None:
+      intens_ = evt_intensity.sum()
+      if intens_ < ipm3lower or intens_ > ipm3upper:
+        skipctr += 1
+        continue
 
     evr=ev.get(psana.EvrData.DataV4, evr_src)
     if evr is None:

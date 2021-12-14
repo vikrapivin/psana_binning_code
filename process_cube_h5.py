@@ -1,18 +1,11 @@
 import psana
 import numpy as np
-# import matplotlib
-# matplotlib.use('Agg')
-import pylab as pyl
-pyl.interactive(True)
-from socket import gethostname
 import os
 from datetime import datetime
 import time
 import h5py
-
 import argparse
 from bin_events_mod import binEvents
-# from events_stats import collect_stats
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD 
@@ -24,52 +17,62 @@ print(f'rank {rank} out of {size}')
 parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
-parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
+parser.add_argument("--laser_off", help="whether or not to add laser offs to the cube", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--time_low", help="specify time start", type=float, default=0.0)
 parser.add_argument("--time_high", help="specify time end", type=float, default=0.0)
+parser.add_argument("--exp_name", help="specify the name of the experiment", type=str, default='xpplw8419')
+parser.add_argument("--ipm_lower", help="lower value of the IPM to filter by", type=float, default=0.0)
+parser.add_argument("--ipm_higher", help="higher value of the IPM to filter by", type=float, default=1.0e10)
+parser.add_argument("--ipm3_lower", help="lower value of the IPM 3 to filter by", type=float, default=0.0)
+parser.add_argument("--ipm3_higher", help="higher value of the IPM 3 to filter by", type=float, default=1.0e10)
+parser.add_argument("--tt_amp", help="time tool amplitude filter (ignore shots below this amplitude).", type=float, default=0.001)
+parser.add_argument("--bin_number", help="total number of bins of make", type=int, default=400)
+parser.add_argument("--detector_threshold", help="lower value to threshold the detector (ie. values below this are set to 0)", type=float, default=0.0)
+parser.add_argument("--detector_threshold_high", help="higher value to threshold the detector (ie. values above this are set to 0)", type=float, default=1.0e10)
+parser.add_argument("--tt_calibration", help="The slope of the time tool calibration output, this is in units of picoseconds per pixel", type=float, default=-0.00156375)
+parser.add_argument("--tt_offset", help="The offset of the time tool calibration line. Not necessary, but then the times will be shifted by the average of the time tool.", type=float, default=0.88457732)
+parser.add_argument("--use_fitted_tt", help="Set to a value greater than 0 to use the fitted timetool pixel position, provided by the facility. By default the facility fit will not be used.", type=int, default=0)
+parser.add_argument("--custom_calibration_directory", help="Provide a custom directory for the pedestal and other psana settings", type=str, default='')
+
+
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 process_laser_off = args.laser_off
 pull_from_ffb = args.pull_from_ffb
+expname = args.exp_name
+ipmlower = args.ipm_lower
+ipmupper = args.ipm_higher
+ipm3lower = args.ipm3_lower
+ipm3upper = args.ipm3_higher
+ttamplower = args.tt_amp
+num_bins = args.bin_number
+thresholdVal = args.detector_threshold
+thresholdVal_max = args.detector_threshold_high
+TIME_TOOL_CALIB = args.tt_calibration
+TIME_TOOL_OFFSET = args.tt_offset
 
-########## set parameters here: #################
-expname = 'xpplv9818'
+use_fitted_tt = True if args.use_fitted_tt > 0 else False
+
 if pull_from_ffb == 0:
   savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
 else:
   savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
-#savepath = 'r%s.h5'%run_num
-ipmlower = 50.0
-ipmupper = 60000.0
-ttamplower = 0.015
-#ttfltposps_lower=
-#ttfltposps_upper=
 
-thresholdVal = 11.0
-thresholdVal_max = 110000.0
-
-TIME_TOOL_CALIB = -0.0019428
-TIME_TOOL_OFFSET = 0.90017463
-#end
 
 laseroffevr = 91
 laseronevr = 90
 delay_range_lower = args.time_low
 delay_range_upper = args.time_high # in units of ps
-## use these to skip out of range delays:
-delay_ignore_lower = delay_range_lower   
-delay_ignore_upper = delay_range_upper 
-num_bins = 400
-weightby = False
-encoder_conv = 0.13333333333333333e-3 # ps/click
-encoder_offset= -182700
-################################################
+
 
 #ds = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
 # ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
 # psana.DataSource('dir=/reg/d/ffb/xpp/xpph6615/xtc/:exp=xpph6615:run=%s:idx'%run)
+if args.custom_calibration_directory != '':
+  print('Using a custom calibration directory: ' + args.custom_calibration_directory)
+  psana.setOption('psana.calib-dir',args.custom_calibration_directory)
 
 if pull_from_ffb == 0:
   ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
@@ -82,18 +85,11 @@ configStore = ds.env().configStore()
 evr2skip = laseroffevr
 total_events = 0
 
-# ipm_src = psana.Source('BldInfo(XppSb3_Ipm)')
 ipm2_src = psana.Source('BldInfo(XPP-SB2-BMMON)')
-#ipm2_src = psana.Detector('XPP-SB2-BMMON',ds.env())
 ipm3_src = psana.Source('BldInfo(XPP-SB3-BMMON)')
-#ipm3_src = psana.Detector('XPP-SB3-BMMON',ds.env())
 evr_src = psana.Source("NoDetector.0:Evr.0")
-# evrDet   = psana.Detector('evr0',ds.env())
 cspadDet =  psana.Detector('jungfrau1M',ds.env()) 
-#encoder_src = psana.Source('DetInfo(XppEndstation.0:USDUSB.0)')
 encoder_src = psana.Detector('XPP-USB-ENCODER-02')
-#encoder_src = psana.Detector()
-#encoder_src = '';
 
 bin_ipm2 = binEvents(delay_range_lower, delay_range_upper, num_bins)
 bin_ipm3 = binEvents(delay_range_lower, delay_range_upper, num_bins)
@@ -126,28 +122,21 @@ def filter_events(evts):
       print(f'skipped: {skipctr}, events.')
       break
 
-#    delay = get_corrected_delay(ev)
-#    if delay is None or delay < delay_ignore_lower or delay > delay_ignore_upper:
-#      skipctr += 1
-#      continue
-
     ## Filter on IPM2
     evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm2_src )
     if evt_intensity is not None:
       intens_ = evt_intensity.TotalIntensity()
-      # print(intens_)
       if intens_ < ipmlower or intens_ > ipmupper:
-        # print('case intensity')
         skipctr += 1
         continue
 
-    # ## Filter on IPM3
-    # evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
-    # if evt_intensity is not None:
-    #   intens_ = evt_intensity.TotalIntensity()
-    #   if intens_ < ipmlower or intens_ > ipmupper:
-    #     skipctr += 1
-    #     continue
+    ## Filter on IPM3
+    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
+    if evt_intensity is not None:
+      intens_ = evt_intensity.TotalIntensity()
+      if intens_ < ipm3lower or intens_ > ipm3upper:
+        skipctr += 1
+        continue
 
     evr=ev.get(psana.EvrData.DataV4, evr_src)
     if evr is None:
@@ -193,8 +182,12 @@ def get_encoder_value(ev):
   return thisDat
 
 def get_timetool_values():
-  # precondition: PV.data() != None
   timetool_delay = epics.getPV('XPP:TIMETOOL:FLTPOS').data()[0] 
+  timetool_ampl  = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
+  return timetool_delay, timetool_ampl
+
+def get_timetool_facility_converted_values():
+  timetool_delay = epics.getPV('XPP:TIMETOOL:FLTPOS_PS').data()[0] 
   timetool_ampl  = epics.getPV('XPP:TIMETOOL:AMPL').data()[0]
   return timetool_delay, timetool_ampl
 
@@ -202,8 +195,12 @@ def get_corrected_delay(ev):
   nominal_delay = get_encoder_value(ev)
   if nominal_delay is None:
     return None
-  timetool_delay, timetool_ampl = get_timetool_values()
-  return nominal_delay + TIME_TOOL_CALIB*timetool_delay + TIME_TOOL_OFFSET
+  if use_fitted_tt:
+    timetool_delay, timetool_ampl = get_timetool_values()
+    return nominal_delay + timetool_delay
+  else:
+    timetool_delay, timetool_ampl = get_timetool_values()
+    return nominal_delay + TIME_TOOL_CALIB*timetool_delay + TIME_TOOL_OFFSET
 
 
 def get_nominal_delay(ev):
@@ -229,40 +226,48 @@ def mpi_reduce_arrays(*args):
 def get_config_string():
   msg = """
   expname = {}
+  run_num = {}
   savepath = {}
   ipmlower = {}
   ipmupper = {}
+  ipm3lower = {}
+  ipm3upper = {}
   ttamplower = {}
   TIME_TOOL_CALIB = {}
+  TIME_TOOL_OFFSET = {}
   laseroffevr = {}
   laseronevr = {}
   delay_range_lower = {}
   delay_range_upper = {}
-  delay_ignore_lower = {}
-  delay_ignore_upper = {}
   num_bins = {}
-  weightby = {}
   thresholdVal = {}
   thresholdVal_max = {}
   process_laser_off = {}
+  pull_from_ffb = {}
+  use_fitted_tt = {}
+  num_events_limit = {}
   """
   s = msg.format( expname,
+                  run_num,
                   savepath,
                   ipmlower,
                   ipmupper,
+                  ipm3lower,
+                  ipm3upper,
                   ttamplower,
                   TIME_TOOL_CALIB,
+                  TIME_TOOL_OFFSET,
                   laseroffevr,
                   laseronevr,
                   delay_range_lower,
                   delay_range_upper,
-                  delay_ignore_lower,
-                  delay_ignore_upper,
                   num_bins,
-                  weightby,
                   thresholdVal,
                   thresholdVal_max,
-                  process_laser_off)
+                  process_laser_off,
+                  pull_from_ffb,
+                  use_fitted_tt,
+                  num_events_limit)
   return s
 
 
