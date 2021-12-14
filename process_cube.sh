@@ -1,3 +1,4 @@
+#!/bin/bash
 expname=xpplw8419
 laserOff=1
 ipmLower=10.00
