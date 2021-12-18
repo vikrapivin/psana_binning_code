@@ -1,13 +1,6 @@
 import psana
 import numpy as np
-# import matplotlib
-# matplotlib.use('Agg')
-import pylab as pyl
-#pyl.interactive(True)
-from socket import gethostname
 import os
-from datetime import datetime
-import time
 import h5py
 
 import argparse
@@ -24,6 +17,7 @@ print(f'rank {rank} out of {size}')
 parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
+parser.add_argument("--exp_name", help="specify the name of the experiment", type=str, default='xpplw8419')
 parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
 parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
@@ -38,7 +32,7 @@ parser.add_argument("--detector_threshold", help="lower value to threshold the d
 parser.add_argument("--detector_threshold_high", help="higher value to threshold the detector (ie. values above this are set to 0)", type=float, default=1.0e10)
 parser.add_argument("--custom_calibration_directory", help="Provide a custom directory for the pedestal and other psana settings", type=str, default='')
 
-
+# TODO: add parameters that corrrespond to detectors, psana source, etc.
 
 args = parser.parse_args()
 run_num = args.run
@@ -53,11 +47,11 @@ ipmlower = args.ipm_lower
 ipmupper = args.ipm_higher
 ipm3lower = args.ipm3_lower
 ipm3upper = args.ipm3_higher
+expname = args.exp_name
 thresholdVal = args.detector_threshold
 thresholdVal_max = args.detector_threshold_high
 
 ########## set parameters here: #################
-expname = 'xpplv9818'
 if pull_from_ffb == 0:
   savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
 else:
@@ -152,7 +146,7 @@ ipm3_src = psana.Source('BldInfo(XPP-SB3-BMMON)')
 evr_src = psana.Source("DetInfo(NoDetector.0:Evr.0)")
 evrDet   = psana.Detector('evr0',ds.env())
 cspadDet = psana.Detector('jungfrau1M',ds.env()) 
-encoder_src = psana.Source('DetInfo(XppEndstation.0:USDUSB.0)')
+encoder_src = psana.Detector('XPP-USB-ENCODER-02')
 
 bin_ipm2 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
 bin_ipm3 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
@@ -227,12 +221,15 @@ def filter_events(evts):
     yield ev
 
 
-def get_control_value():
+def get_control_value(ev):
   control = configStore.get(psana.ControlData.Config).pvControls()
   # precondition: len(control) == 1
   if control[0].name() == "lxt_ttc" or control[0].name() == "lxt" or control[0].name() == "lxt_new" or control[0].name() == "xpp_lxt_fast":
-    raise("This is a delay scan. Handle this error or comment it if you are sure you would like to continue.")
-    return 1e12*control[scanMotorConfigStoreOffSet].value()
+    raise("This is a delay scan. Handle this error or comment it if you are sure you would like to continue. You will likely need to specify custom ranges for this binning.")
+    if encoder_src.values(ev) is None:
+      return None
+    enc_data = encoder_src.values(ev)[0]
+    return enc_data
   else:
     return control[scanMotorConfigStoreOffSet].value()
 
@@ -332,7 +329,7 @@ mpi_message(get_config_string())
 for nevent, ev in enumerate(filter_events(ds.events() )):
   total_events += 1
   # maybe this goes after ipm's to capture laseroffs at the end:
-  scan_val = get_control_value()
+  scan_val = get_control_value(ev)
   if scan_val is None:
     continue
 
