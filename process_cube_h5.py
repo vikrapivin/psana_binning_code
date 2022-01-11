@@ -66,6 +66,10 @@ laseronevr = 90
 delay_range_lower = args.time_low
 delay_range_upper = args.time_high # in units of ps
 
+# count how many events are skipped
+skipctr = 0
+count = 0
+
 
 #ds = psana.DataSource('exp=' + expname + ':run=%s:smd'%run_num)
 # ds = psana.MPIDataSource('exp=' + expname + ':run=%s:smd'%run_num)
@@ -387,6 +391,9 @@ if process_laser_off !=0:
 
 delays = bin_cspad_sum.bin_edges()
 mpi_message(bin_cspad_sum_count)
+
+mpi_message(f'\nFiltered {skipctr} events out of a total of {count} events')
+
 if rank==0:
   if process_laser_off == 0:
     saveh5(savepath,  cspad = bin_cspad_mean, 
