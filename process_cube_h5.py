@@ -115,8 +115,8 @@ def mpi_message(msg):
 """ Filters by skipping events that are outside of the desired range. Comment out what you do not want.
 """
 def filter_events(evts):
-  skipctr = 0
-  count = 0
+  global skipctr
+  global count
   # count2 = 0
   for ev in evts:
     # print(skipctr)
@@ -391,8 +391,12 @@ if process_laser_off !=0:
 
 delays = bin_cspad_sum.bin_edges()
 mpi_message(bin_cspad_sum_count)
-
-mpi_message(f'\nFiltered {skipctr} events out of a total of {count} events')
+# print(f'\ncur thread: Filtered {skipctr} events out of a total of {count} events')
+count_f = 0
+skipctr_f = 0
+count_f = comm.reduce(count)
+skipctr_f = comm.reduce(skipctr)
+mpi_message(f'\nFiltered {skipctr_f} events out of a total of {count_f} events')
 
 if rank==0:
   if process_laser_off == 0:
