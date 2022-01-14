@@ -333,6 +333,9 @@ mpi_message("Starting event loop. ")
 mpi_message("Using config: ")
 mpi_message(get_config_string())
 
+ipm3dataexists = False
+ipm2dataexists = False
+
 for nevent, ev in enumerate(filter_events(ds.events() )):
   total_events += 1
   # maybe this goes after ipm's to capture laseroffs at the end:
@@ -340,23 +343,27 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
   if scan_val is None:
     continue
 
-  if ipm3lower > 0:
-    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm3_src )
-    if evt_intensity is None:
-      print("*** missing Ipm3 data. Skipping event...")
-      continue
-    ipm3intens = evt_intensity.TotalIntensity()
-  else:
-    ipm3intens = 0
- 
-  if ipmlower > 0:
-    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
-    if evt_intensity is None:
+  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
+  if evt_intensity is None:
+    if ipmlower > 0 and ipm2dataexists == False:
+      ipm2intens = 0
+    else:
       print("*** missing Ipm2 data. Skipping event...")
       continue
-    ipm2intens = evt_intensity.TotalIntensity()
   else:
-    ipm2intens = 0
+    ipm2intens = evt_intensity.TotalIntensity()
+    ipm2dataexists = True
+  
+  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
+  if evt_intensity is None:
+    if ipm3lower > 0 and ipm3dataexists == False:
+      ipm3intens = 0
+    else:
+      print("*** missing Ipm3 data. Skipping event...")
+      continue
+  else:
+    ipm3intens = evt_intensity.TotalIntensity()
+    ipm3dataexists = True
   
   
   cspad_data=cspadDet.image(ev)

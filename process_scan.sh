@@ -1,8 +1,9 @@
-#!/bin/bash
 expname=xpplw8419
 laserOff=1
 ipmLower=10.00
-detectorThreshold=10
+ipm3Lower=-1
+detectorThreshold=9.9
+relativeScan=1
 run=$1
 
 if [ -z "$1" ]
@@ -11,4 +12,4 @@ then
     exit
 fi
 
-mpiexec python process_scan.py --laser_off $laserOff --exp_name $expname --ipm_lower $ipmLower --detector_threshold $detectorThreshold $run $4
+mpiexec python process_scan.py --laser_off $laserOff --exp_name $expname --ipm_lower $ipmLower --ipm3_lower $ipm3Lower --detector_threshold $detectorThreshold --relative_scan $relativeScan $run $2
