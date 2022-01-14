@@ -127,20 +127,22 @@ def filter_events(evts):
       break
 
     ## Filter on IPM2
-    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm2_src )
-    if evt_intensity is not None:
-      intens_ = evt_intensity.TotalIntensity()
-      if intens_ < ipmlower or intens_ > ipmupper:
-        skipctr += 1
-        continue
+    if ipmlower > 0:
+      evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm2_src )
+      if evt_intensity is not None:
+        intens_ = evt_intensity.TotalIntensity()
+        if intens_ < ipmlower or intens_ > ipmupper:
+          skipctr += 1
+          continue
 
     ## Filter on IPM3
-    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
-    if evt_intensity is not None:
-      intens_ = evt_intensity.TotalIntensity()
-      if intens_ < ipm3lower or intens_ > ipm3upper:
-        skipctr += 1
-        continue
+    if ipm3lower > 0:
+      evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
+      if evt_intensity is not None:
+        intens_ = evt_intensity.TotalIntensity()
+        if intens_ < ipm3lower or intens_ > ipm3upper:
+          skipctr += 1
+          continue
 
     evr=ev.get(psana.EvrData.DataV4, evr_src)
     if evr is None:
@@ -320,17 +322,23 @@ prev_delay = None
 for nevent, ev in enumerate(filter_events(ds.events() )):
   total_events += 1
 
-  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
-  if evt_intensity is None:
-    print("*** missing Ipm2 data. Skipping event...")
-    continue
-  ipm2intens = evt_intensity.TotalIntensity()
+  if ipmlower > 0:
+    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
+    if evt_intensity is None:
+      print("*** missing Ipm2 data. Skipping event...")
+      continue
+    ipm2intens = evt_intensity.TotalIntensity()
+  else:
+    ipm2intens = 0
   
-  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
-  if evt_intensity is None:
-    print("*** missing Ipm3 data. Skipping event...")
-    continue
-  ipm3intens = evt_intensity.TotalIntensity()
+  if ipm3lower > 0:
+    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
+    if evt_intensity is None:
+      print("*** missing Ipm3 data. Skipping event...")
+      continue
+    ipm3intens = evt_intensity.TotalIntensity()
+  else:
+    ipm3intens = 0
   
   cspad_data=cspadDet.image(ev)
   if cspad_data is None:

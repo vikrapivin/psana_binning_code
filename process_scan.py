@@ -23,10 +23,9 @@ parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if t
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
 parser.add_argument("--ignore_no_optical_laser", help="Should this code explicitly check that each laser on event has a laser on code. This is typically not what you want as you want data from when we have optical laser off.", type=int, default=0)
-parser.add_argument("--exp_name", help="specify the name of the experiment", type=str, default='xpplw8419')
-parser.add_argument("--ipm_lower", help="lower value of the IPM to filter by", type=float, default=0.0)
+parser.add_argument("--ipm_lower", help="lower value of the IPM to filter by (-1 to disable filter)", type=float, default=0.0)
 parser.add_argument("--ipm_higher", help="higher value of the IPM to filter by", type=float, default=1.0e10)
-parser.add_argument("--ipm3_lower", help="lower value of the IPM 3 to filter by", type=float, default=0.0)
+parser.add_argument("--ipm3_lower", help="lower value of the IPM 3 to filter by (-1 to disable filter)", type=float, default=0.0)
 parser.add_argument("--ipm3_higher", help="higher value of the IPM 3 to filter by", type=float, default=1.0e10)
 parser.add_argument("--detector_threshold", help="lower value to threshold the detector (ie. values below this are set to 0)", type=float, default=0.0)
 parser.add_argument("--detector_threshold_high", help="higher value to threshold the detector (ie. values above this are set to 0)", type=float, default=1.0e10)
@@ -47,7 +46,6 @@ ipmlower = args.ipm_lower
 ipmupper = args.ipm_higher
 ipm3lower = args.ipm3_lower
 ipm3upper = args.ipm3_higher
-expname = args.exp_name
 thresholdVal = args.detector_threshold
 thresholdVal_max = args.detector_threshold_high
 
@@ -59,6 +57,9 @@ else:
 
 laseroffevr = 91
 laseronevr = 90
+
+skipctr = 0
+count = 0
 
 # get some scan parameters
 rel_offset = 0
@@ -168,8 +169,8 @@ def mpi_message(msg):
 """ Filters by skipping events that are outside of the desired range. Comment out what you do not want.
 """
 def filter_events(evts):
-  skipctr = 0
-  count = 0
+  global skipctr
+  global count
   for ev in evts:
     count += 1
     if count > num_events_limit:
@@ -179,20 +180,22 @@ def filter_events(evts):
 
 
     ## Filter on IPM2
-    evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm2_src )
-    if evt_intensity is not None:
-      intens_ = evt_intensity.sum()
-      if intens_ < ipmlower or intens_ > ipmupper:
-        skipctr += 1
-        continue
+    if ipmlower > 0:
+      evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm2_src )
+      if evt_intensity is not None:
+        intens_ = evt_intensity.sum()
+        if intens_ < ipmlower or intens_ > ipmupper:
+          skipctr += 1
+          continue
 
     ## Filter on IPM3
-    evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm3_src )
-    if evt_intensity is not None:
-      intens_ = evt_intensity.sum()
-      if intens_ < ipm3lower or intens_ > ipm3upper:
-        skipctr += 1
-        continue
+    if ipm3lower > 0:
+      evt_intensity=ev.get(psana.Lusi.IpmFexV1, ipm3_src )
+      if evt_intensity is not None:
+        intens_ = evt_intensity.sum()
+        if intens_ < ipm3lower or intens_ > ipm3upper:
+          skipctr += 1
+          continue
 
     evr=ev.get(psana.EvrData.DataV4, evr_src)
     if evr is None:
@@ -255,6 +258,8 @@ def get_config_string():
   savepath = {}
   ipmlower = {}
   ipmupper = {}
+  ipm3lower = {}
+  ipm3upper = {}
   laseroffevr = {}
   laseronevr = {}
   range_lower = {}
@@ -272,6 +277,8 @@ def get_config_string():
                   savepath,
                   ipmlower,
                   ipmupper,
+                  ipm3lower,
+                  ipm3upper,
                   laseroffevr,
                   laseronevr,
                   range_lower,
@@ -333,17 +340,23 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
   if scan_val is None:
     continue
 
-  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm3_src )
-  if evt_intensity is None:
-    print("*** missing Ipm3 data. Skipping event...")
-    continue
-  ipm3intens = evt_intensity.TotalIntensity()
+  if ipm3lower > 0:
+    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm3_src )
+    if evt_intensity is None:
+      print("*** missing Ipm3 data. Skipping event...")
+      continue
+    ipm3intens = evt_intensity.TotalIntensity()
+  else:
+    ipm3intens = 0
  
-  evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
-  if evt_intensity is None:
-    print("*** missing Ipm2 data. Skipping event...")
-    continue
-  ipm2intens = evt_intensity.TotalIntensity()
+  if ipmlower > 0:
+    evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
+    if evt_intensity is None:
+      print("*** missing Ipm2 data. Skipping event...")
+      continue
+    ipm2intens = evt_intensity.TotalIntensity()
+  else:
+    ipm2intens = 0
   
   
   cspad_data=cspadDet.image(ev)
@@ -398,6 +411,11 @@ if process_laser_off !=0:
 #scan_vals = bin_cspad_sum.bin_centers()
 scan_vals = np.linspace(range_lower,range_upper, num_bins)
 
+count_f = 0
+skipctr_f = 0
+count_f = comm.reduce(count)
+skipctr_f = comm.reduce(skipctr)
+mpi_message(f'\nFiltered {skipctr_f} events out of a total of {count_f} events')
 
 if rank==0:
   print(bin_cspad_sum_count)
