@@ -5,7 +5,7 @@ This code here can process the full detector image and output a code for a parti
 
 ## How to run this code
 Please first log in with your SLAC account to pslogin.
-For the first time you run this code, you need to add the psana anaconda environment to your path. You can do this by running (or adding this line at the end of your .bashrc, credits Vincent)
+For the first time you run this code, you need to add the psana anaconda environment to your path. You can do this by running the following or adding this line at the end of your .bashrc (credits to Vincent for telling me about this bash script):
 ```
 #sit_setup ana-current
 if [ $(echo $HOSTNAME | grep -ic -e "psana" -e "mon0" -e "drp-srcf") -eq 1 ] 
