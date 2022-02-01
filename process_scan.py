@@ -19,7 +19,7 @@ parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=s
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
 parser.add_argument("--exp_name", help="specify the name of the experiment", type=str, default='xpplw8419')
 parser.add_argument("--background", help="name of background file, leave empty if none", type=str, default='')
-parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, default false)", type=int, default=0)
+parser.add_argument("--relative_scan", help="treat scan as relative scan (1 if true, 0 if false, -1 if the scan is reversed direction, default false)", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add a laser off cube to the cube", type=int, default=0)
 parser.add_argument("--ignore_no_optical_laser", help="Should this code explicitly check that each laser on event has a laser on code. This is typically not what you want as you want data from when we have optical laser off.", type=int, default=0)
@@ -94,8 +94,10 @@ if rank == 0:
           break
       if foundVal == False:
         print('Warning: was not able to find the scan motor config store offset. Assuming it is 0.')
-      if is_relative_scan>0:
+      if is_relative_scan >0:
         rel_offset = configStore.get(psana.ControlData.Config).pvControls()[scanMotorConfigStoreOffSet].value() - range_lower
+      if is_relative_scan <0:
+        rel_offset = configStore.get(psana.ControlData.Config).pvControls()[scanMotorConfigStoreOffSet].value() - range_upper
       break
   # get background if specified
   if background_file != '':
@@ -121,7 +123,7 @@ if background_file != '':
     avgBkgr = np.zeros(cspad_data_shape, dtype='float64')
   comm.Barrier()
   comm.Bcast(avgBkgr, root=0)
-if is_relative_scan >0:
+if is_relative_scan !=0:
   rel_offset = comm.bcast(rel_offset, root=0)
   range_lower = rel_offset + range_lower
   range_upper = rel_offset + range_upper
@@ -345,7 +347,7 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
 
   evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1,ipm2_src )
   if evt_intensity is None:
-    if ipmlower > 0 and ipm2dataexists == False:
+    if ipmlower < 0 and ipm2dataexists == False:
       ipm2intens = 0
     else:
       print("*** missing Ipm2 data. Skipping event...")
@@ -356,7 +358,7 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
   
   evt_intensity=ev.get(psana.Bld.BldDataBeamMonitorV1, ipm3_src )
   if evt_intensity is None:
-    if ipm3lower > 0 and ipm3dataexists == False:
+    if ipm3lower < 0 and ipm3dataexists == False:
       ipm3intens = 0
     else:
       print("*** missing Ipm3 data. Skipping event...")
