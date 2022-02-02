@@ -34,6 +34,8 @@ parser.add_argument("--tt_calibration", help="The slope of the time tool calibra
 parser.add_argument("--tt_offset", help="The offset of the time tool calibration line. Not necessary, but then the times will be shifted by the average of the time tool.", type=float, default=0.88457732)
 parser.add_argument("--use_fitted_tt", help="Set to a value greater than 0 to use the fitted timetool pixel position, provided by the facility. By default the facility fit will not be used.", type=int, default=0)
 parser.add_argument("--custom_calibration_directory", help="Provide a custom directory for the pedestal and other psana settings", type=str, default='')
+parser.add_argument("--save_directory", help="Provide a directory (from the root of the experimental folder) to save the cube in", type=str, default='/results/krapivin/runs/')
+parser.add_argument("--append_file_name", help="Append a string to the filename in the save directory", type=str, default='')
 
 
 args = parser.parse_args()
@@ -52,11 +54,14 @@ thresholdVal = args.detector_threshold
 thresholdVal_max = args.detector_threshold_high
 TIME_TOOL_CALIB = args.tt_calibration
 TIME_TOOL_OFFSET = args.tt_offset
+saveDirectory = args.save_directory
+appendFilename = "".join(x for x in (args.append_file_name) if x.isalnum()) # make sure string appending is a valid thing to append
 
 use_fitted_tt = True if args.use_fitted_tt > 0 else False
 
 if pull_from_ffb == 0:
-  savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+  # savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+  savepath = '/reg/d/psdm/xpp/' + expname + saveDirectory +('r%s'%run_num) + appendFilename + '.h5'
 else:
   savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
 

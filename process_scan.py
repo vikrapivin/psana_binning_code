@@ -30,6 +30,9 @@ parser.add_argument("--ipm3_higher", help="higher value of the IPM 3 to filter b
 parser.add_argument("--detector_threshold", help="lower value to threshold the detector (ie. values below this are set to 0)", type=float, default=0.0)
 parser.add_argument("--detector_threshold_high", help="higher value to threshold the detector (ie. values above this are set to 0)", type=float, default=1.0e10)
 parser.add_argument("--custom_calibration_directory", help="Provide a custom directory for the pedestal and other psana settings", type=str, default='')
+parser.add_argument("--save_directory", help="Provide a directory (from the root of the experimental folder) to save the cube in", type=str, default='/results/krapivin/runs/')
+parser.add_argument("--append_file_name", help="Append a string to the filename in the save directory", type=str, default='')
+
 
 # TODO: add parameters that corrrespond to detectors, psana source, etc.
 
@@ -48,11 +51,14 @@ ipm3lower = args.ipm3_lower
 ipm3upper = args.ipm3_higher
 thresholdVal = args.detector_threshold
 thresholdVal_max = args.detector_threshold_high
+saveDirectory = args.save_directory
+appendFilename = "".join(x for x in (args.append_file_name) if x.isalnum()) # make sure string appending is a valid thing to append
 
 ########## set parameters here: #################
 if pull_from_ffb == 0:
-  savepath = '/reg/d/psdm/xpp/' + expname + '/results/krapivin/runs/r%s.h5'%run_num
+  savepath = '/reg/d/psdm/xpp/' + expname + saveDirectory +('r%s'%run_num) + appendFilename + '.h5'
 else:
+  # fixME
   savepath = '/cds/data/drpsrcf/xpp/'+ expname + '/scratch/krapivin/runs/r%s.h5'%run_num
 
 laseroffevr = 91
