@@ -157,13 +157,13 @@ evrDet   = psana.Detector('evr0',ds.env())
 cspadDet = psana.Detector('jungfrau1M',ds.env()) 
 encoder_src = psana.Detector('XPP-USB-ENCODER-02')
 
-bin_ipm2 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
-bin_ipm3 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))
-bin_cspad_sum = binEvents.init_from_array(np.linspace(range_lower,range_upper, num_bins))
+bin_ipm2 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num=num_bins,endpoint=True))
+bin_ipm3 = binEvents.init_from_array(np.linspace(range_lower,range_upper,num=num_bins,endpoint=True))
+bin_cspad_sum = binEvents.init_from_array(np.linspace(range_lower,range_upper, num=num_bins,endpoint=True))
 if process_laser_off !=0:
-  bin_cspad_sum_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
-  bin_ipm2_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
-  bin_ipm3_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num_bins))#(range_lower, range_upper, num_bins)
+  bin_cspad_sum_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num=num_bins,endpoint=True))#(range_lower, range_upper, num_bins)
+  bin_ipm2_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num=num_bins,endpoint=True))#(range_lower, range_upper, num_bins)
+  bin_ipm3_off = binEvents.init_from_array(np.linspace(range_lower,range_upper,num=num_bins,endpoint=True))#(range_lower, range_upper, num_bins)
 
 
 def mpi_message(msg):
@@ -408,6 +408,8 @@ for nevent, ev in enumerate(filter_events(ds.events() )):
     # print("# events: ", nevent)
     mpi_message("number of events: %s"% nevent)
     mpi_message("stage position = %s"% scan_val)
+    # print("number of events: %s"% nevent)
+    # print("stage position = %s"% scan_val)
 
 bin_cspad_mean, bin_cspad_sum_count, bin_ipm2_mean, bin_ipm2_cts, bin_ipm3_mean, bin_ipm3_cts = mpi_reduce_arrays(bin_cspad_sum._img, 
                     bin_cspad_sum._bin_count, 
@@ -424,7 +426,7 @@ if process_laser_off !=0:
                       bin_ipm3_off._img, 
                       bin_ipm3_off._bin_count)
 #scan_vals = bin_cspad_sum.bin_centers()
-scan_vals = np.linspace(range_lower,range_upper, num_bins)
+scan_vals = np.linspace(range_lower,range_upper, num_bins,endpoint=True)
 
 count_f = 0
 skipctr_f = 0
