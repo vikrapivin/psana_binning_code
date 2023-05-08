@@ -17,6 +17,7 @@ print(f'rank {rank} out of {size}')
 parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
+parser.add_argument("--num_events_start", help="number of events to process", type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add laser offs to the cube", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--time_low", help="specify time start", type=float, default=0.0)
@@ -41,6 +42,7 @@ parser.add_argument("--append_file_name", help="Append a string to the filename 
 args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
+num_events_start = args.num_events_start
 process_laser_off = args.laser_off
 pull_from_ffb = args.pull_from_ffb
 expname = args.exp_name
@@ -126,6 +128,9 @@ def filter_events(evts):
   for ev in evts:
     # print(skipctr)
     count += 1
+    if count < num_events_start:
+      skipctr += 1
+      continue
     if count > num_events_limit:
       print(f'processed: {count}, events.')
       print(f'skipped: {skipctr}, events.')
