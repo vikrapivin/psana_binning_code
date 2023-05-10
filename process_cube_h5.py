@@ -17,7 +17,7 @@ print(f'rank {rank} out of {size}')
 parser = argparse.ArgumentParser()
 parser.add_argument("run", help="run number or range, e.g. 100,109-113.", type=str)
 parser.add_argument("--num_events", help="number of events to process", type=int, default=1<<31)
-parser.add_argument("--num_events_start", help="number of events to process", type=int, default=0)
+parser.add_argument("--num_events_start", help="event index to begin processing at.", type=int, default=0)
 parser.add_argument("--laser_off", help="whether or not to add laser offs to the cube", type=int, default=0)
 parser.add_argument("--pull_from_ffb", help='pull xtc files from ffb, (1 if true, 0 if false, default false)', type=int, default=0)
 parser.add_argument("--time_low", help="specify time start", type=float, default=0.0)
@@ -43,6 +43,9 @@ args = parser.parse_args()
 run_num = args.run
 num_events_limit = args.num_events
 num_events_start = args.num_events_start
+if size > 1: # ugly hack to do event skipping in MPI mode. As long as you are doing approximate numbers, this is approximately correct.
+  num_events_limit = int(num_events_limit/size)
+  num_events_start = int(num_events_start/size)
 process_laser_off = args.laser_off
 pull_from_ffb = args.pull_from_ffb
 expname = args.exp_name
@@ -261,6 +264,7 @@ def get_config_string():
   process_laser_off = {}
   pull_from_ffb = {}
   use_fitted_tt = {}
+  num_events_start = {}
   num_events_limit = {}
   """
   s = msg.format( expname,
@@ -283,6 +287,7 @@ def get_config_string():
                   process_laser_off,
                   pull_from_ffb,
                   use_fitted_tt,
+                  num_events_start,
                   num_events_limit)
   return s
 
