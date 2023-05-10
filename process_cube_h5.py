@@ -417,9 +417,9 @@ if process_laser_off !=0:
                       bin_ipm3_off._img, 
                       bin_ipm3_off._bin_count)
 
-#delays = bin_cspad_sum.bin_edges()
+delays = bin_cspad_sum.bin_edges() # return edges, first bin is outside range left and last bin is outside range right. everything in (a,b] is averaged in bin b.
 #delays = bin_cspad_sum.bin_centers()
-delays = np.linspace(delay_range_lower, delay_range_upper, num_bins,endpoint=True)
+# delays = np.linspace(delay_range_lower, delay_range_upper, num_bins,endpoint=True)
 mpi_message(bin_cspad_sum_count)
 # print(f'\ncur thread: Filtered {skipctr} events out of a total of {count} events')
 count_f = 0

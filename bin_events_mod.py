@@ -63,10 +63,19 @@ class binEvents(object):
                         num_bins)
 
   def bin_edges(self):
+    # old bin edges
+    # num_bins = self._num_bins-2
+    # z = np.zeros(num_bins+1)
+    # for i in range(0,num_bins+1):
+    #   z[i] = self._min + i*self._bin_width
+    # return z
+    # clarify that the first bin and the last bin are out of scope.
     num_bins = self._num_bins-2
-    z = np.zeros(num_bins+1)
+    z = np.zeros(num_bins+2)
     for i in range(0,num_bins+1):
       z[i] = self._min + i*self._bin_width
+    z[0] = np.NINF
+    z[-1] = np.Infinity # set last bin to inf
     return z
     # np.linspace(self._min, self._max, self._num_bins-2)
 
